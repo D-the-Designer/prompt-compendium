@@ -190,6 +190,11 @@
       <input type="text" id="fModel" placeholder="e.g. Midjourney V7, Nano Banana Pro, Kling 2.6, Unspecified…">
     </div>
     <div class="field">
+      <label>Attribution (optional)</label>
+      <input type="text" id="fAttribution" placeholder="Who shared or created this? e.g. Jane Doe (@handle)">
+      <p class="hint">Leave blank if unknown — credit whoever you got it from when you can.</p>
+    </div>
+    <div class="field">
       <label>Subject (short label)</label>
       <input type="text" id="fSubject" placeholder="What does this prompt generate?">
     </div>
@@ -268,6 +273,7 @@
   const tocScrim = document.getElementById('tocScrim');
   const overlay = document.getElementById('overlay');
   const fModel = document.getElementById('fModel');
+  const fAttribution = document.getElementById('fAttribution');
   const fSubject = document.getElementById('fSubject');
   const fCategory = document.getElementById('fCategory');
   const fText = document.getElementById('fText');
@@ -377,7 +383,7 @@
       if (model && p.model !== model) return false;
       if (cat && p.category !== cat) return false;
       if (!q) return true;
-      return p.text.toLowerCase().includes(q) || p.subject.toLowerCase().includes(q) || p.model.toLowerCase().includes(q);
+      return p.text.toLowerCase().includes(q) || p.subject.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || (p.attribution && p.attribution.toLowerCase().includes(q));
     });
     countEl.textContent = filtered.length + ' / ' + state.entries.length + ' shown';
     subLine.textContent = state.entries.length === 0
@@ -406,7 +412,7 @@
           <div class="card-head">
             <div class="card-meta">
               <div class="card-n">ARCHIVE #${p.id}</div>
-              <div class="card-model">${escapeHtml(p.model)}</div>
+              <div class="card-model">${escapeHtml(p.model)}${p.attribution ? ' · ' + escapeHtml(p.attribution) : ''}</div>
               <div class="card-subject">${escapeHtml(p.subject)}</div>
             </div>
             <div class="card-actions">
@@ -452,7 +458,7 @@
   function openAddModal(){
     editingId = null;
     modalTitle.textContent = 'Add a prompt';
-    fModel.value = ''; fSubject.value = ''; fText.value = '';
+    fModel.value = ''; fAttribution.value = ''; fSubject.value = ''; fText.value = '';
     populateCategorySelect(fCategory, allCategories()[0]);
     deleteBtn.style.display = 'none';
     overlay.classList.add('show');
@@ -463,7 +469,7 @@
     if (!item) return;
     editingId = id;
     modalTitle.textContent = `Edit Archive #${id}`;
-    fModel.value = item.model; fSubject.value = item.subject; fText.value = item.text;
+    fModel.value = item.model; fAttribution.value = item.attribution || ''; fSubject.value = item.subject; fText.value = item.text;
     populateCategorySelect(fCategory, item.category);
     deleteBtn.style.display = 'inline-block';
     overlay.classList.add('show');
@@ -490,6 +496,7 @@
 
   document.getElementById('saveBtn').addEventListener('click', () => {
     const model = fModel.value.trim() || 'Unspecified';
+    const attribution = fAttribution.value.trim() || null;
     const subject = fSubject.value.trim();
     const text = fText.value.trim();
     const category = fCategory.value || 'Uncategorized';
@@ -497,9 +504,9 @@
 
     if (editingId){
       const item = state.entries.find(e => e.id === editingId);
-      item.model = model; item.subject = subject; item.text = text; item.category = category;
+      item.model = model; item.attribution = attribution; item.subject = subject; item.text = text; item.category = category;
     } else {
-      state.entries.push({ id: state.nextId, model, subject, text, category });
+      state.entries.push({ id: state.nextId, model, attribution, subject, text, category });
       state.nextId += 1;
     }
     saveState();
