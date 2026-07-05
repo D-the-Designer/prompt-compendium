@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Compendium Builder — make your own</title>
+<style>
+  :root{
+    --bg: #0d0f0d;
+    --panel: #141712;
+    --panel-border: #2a2f27;
+    --ink: #e7e9e2;
+    --ink-dim: #9aa093;
+    --accent: #c9a34e;
+    --accent-dim: #8a7133;
+    --danger: #b0524a;
+    --mono: "IBM Plex Mono", "Consolas", "SF Mono", monospace;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --sidebar-w: 300px;
+  }
+  * { box-sizing: border-box; }
+  html,body{ margin:0; padding:0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  body{
+    background-image:
+      linear-gradient(180deg, rgba(201,163,78,0.05), transparent 260px),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+  }
+  header{
+    position: sticky; top:0; z-index: 30;
+    background: rgba(13,15,13,0.94);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 16px 24px 14px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .toc-toggle{
+    display: none; background: var(--panel); border: 1px solid var(--panel-border);
+    color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 9px 12px;
+    border-radius: 3px; cursor: pointer; flex: 0 0 auto;
+  }
+  .header-main{ flex: 1 1 auto; min-width: 0; }
+  .eyebrow{ font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
+  h1{ margin: 0 0 4px; font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
+  .sub{ margin: 0 0 14px; font-size: 12.5px; color: var(--ink-dim); }
+  .controls{ display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
+  input[type="search"], input[type="text"], textarea, select{
+    background: var(--panel); border: 1px solid var(--panel-border); color: var(--ink);
+    padding: 9px 11px; border-radius: 3px; font-family: var(--mono); font-size: 13px; outline: none;
+  }
+  input[type="search"]{ flex: 1 1 240px; min-width: 180px; }
+  input:focus, textarea:focus, select:focus{ border-color: var(--accent-dim); }
+  select{ font-size: 12.5px; max-width: 260px; }
+  .count{ font-family: var(--mono); font-size: 12px; color: var(--ink-dim); white-space: nowrap; padding-left: 4px; }
+  button{ font-family: var(--sans); cursor: pointer; }
+  .btn{
+    background: transparent; border: 1px solid var(--accent-dim); color: var(--accent);
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.03em; text-transform: uppercase;
+    padding: 9px 13px; border-radius: 3px; transition: background 0.15s ease, color 0.15s ease; white-space: nowrap;
+  }
+  .btn:hover{ background: var(--accent-dim); color: #0d0f0d; }
+  .btn.primary{ background: var(--accent); color: #0d0f0d; border-color: var(--accent); }
+  .btn.primary:hover{ background: #ddb85e; }
+  .btn.small{ padding: 5px 9px; font-size: 10px; }
+  .btn.ghost{ border-color: var(--panel-border); color: var(--ink-dim); }
+  .btn.ghost:hover{ background: var(--panel-border); color: var(--ink); }
+  .btn.danger{ border-color: var(--danger); color: var(--danger); }
+  .btn.danger:hover{ background: var(--danger); color: #0d0f0d; }
+
+  .layout{ display: flex; align-items: flex-start; max-width: 1240px; margin: 0 auto; }
+  nav.toc{
+    position: sticky; top: 89px; flex: 0 0 var(--sidebar-w); width: var(--sidebar-w);
+    max-height: calc(100vh - 89px); overflow-y: auto; padding: 20px 14px 40px 24px;
+    border-right: 1px solid var(--panel-border);
+  }
+  nav.toc::-webkit-scrollbar{ width: 8px; }
+  nav.toc::-webkit-scrollbar-thumb{ background: var(--panel-border); border-radius: 4px; }
+  .toc-title{ font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); margin: 0 0 10px; }
+  .toc-cat-btn{
+    width: 100%; display:flex; justify-content: space-between; align-items:center; gap: 8px;
+    background: none; border: none; color: var(--ink); text-align: left; font-family: var(--sans);
+    font-size: 12.5px; line-height: 1.35; padding: 7px 6px; border-radius: 3px; cursor: pointer;
+  }
+  .toc-cat-btn:hover{ background: var(--panel); }
+  .toc-cat-btn .n{ color: var(--accent); font-family: var(--mono); font-size: 11px; flex: 0 0 auto; }
+  .toc-cat-btn .arrow{ color: var(--ink-dim); font-size: 10px; flex: 0 0 auto; transition: transform 0.15s ease; }
+  .toc-cat.open .toc-cat-btn .arrow{ transform: rotate(90deg); }
+  .toc-entries{ display: none; list-style: none; margin: 0 0 6px; padding: 0 0 0 10px; border-left: 1px solid var(--panel-border); }
+  .toc-cat.open .toc-entries{ display: block; }
+  .toc-entries li a{ display: block; padding: 5px 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-dim); text-decoration: none; line-height: 1.4; border-radius: 3px; }
+  .toc-entries li a:hover{ color: var(--ink); background: var(--panel); }
+
+  main{ flex: 1 1 auto; min-width: 0; max-width: 900px; margin: 0 auto; padding: 24px 28px 100px; }
+  .cat-heading{ display: flex; align-items: baseline; gap: 10px; margin: 34px 0 4px; padding-top: 6px; scroll-margin-top: 96px; }
+  .cat-heading:first-child{ margin-top: 0; }
+  .cat-heading h2{ margin: 0; font-size: 17px; font-weight: 600; color: var(--accent); }
+  .cat-heading .cat-count{ font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+  .cat-rule{ border: none; border-top: 1px solid var(--panel-border); margin: 8px 0 18px; }
+
+  .card{ background: var(--panel); border: 1px solid var(--panel-border); border-radius: 4px; margin-bottom: 14px; overflow: hidden; scroll-margin-top: 96px; }
+  .card-head{ display:flex; align-items:flex-start; justify-content: space-between; gap: 12px; padding: 12px 14px 10px; border-bottom: 1px solid var(--panel-border); }
+  .card-meta{ min-width: 0; }
+  .card-n{ font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: 0.08em; }
+  .card-model{ font-family: var(--mono); font-size: 11px; color: var(--ink-dim); margin: 2px 0 4px; }
+  .card-subject{ font-size: 13.5px; line-height: 1.35; color: var(--ink); }
+  .card-actions{ display: flex; gap: 6px; flex: 0 0 auto; }
+  pre.card-text{ margin: 0; padding: 14px; font-family: var(--mono); font-size: 12.5px; line-height: 1.55; color: #cfd3c8; white-space: pre-wrap; word-break: break-word; max-height: 340px; overflow-y: auto; }
+  .card-text::-webkit-scrollbar{ width: 8px; }
+  .card-text::-webkit-scrollbar-thumb{ background: var(--panel-border); border-radius: 4px; }
+  .empty{ font-family: var(--mono); color: var(--ink-dim); padding: 60px 20px; text-align: center; font-size: 13px; line-height: 1.8; }
+  .empty .btn{ margin-top: 14px; }
+
+  footer{ max-width: 900px; margin: 0 auto; padding: 0 28px 60px; font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+
+  /* Modal */
+  .overlay{ position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  .overlay.show{ display: flex; }
+  .modal{ background: var(--panel); border: 1px solid var(--panel-border); border-radius: 6px; width: 100%; max-width: 640px; padding: 22px 24px; }
+  .modal h3{ margin: 0 0 16px; font-size: 16px; }
+  .field{ margin-bottom: 14px; }
+  .field label{ display:block; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-dim); margin-bottom: 6px; }
+  .field input, .field select, .field textarea{ width: 100%; }
+  .field textarea{ min-height: 160px; resize: vertical; line-height: 1.5; }
+  .field-row{ display: flex; gap: 10px; }
+  .field-row .field{ flex: 1 1 0; }
+  .cat-row{ display: flex; gap: 8px; align-items: center; }
+  .cat-row select{ flex: 1 1 auto; }
+  .modal-actions{ display: flex; justify-content: space-between; align-items: center; margin-top: 18px; gap: 10px; }
+  .modal-actions .right{ display:flex; gap: 8px; }
+  .hint{ font-size: 11px; color: var(--ink-dim); margin-top: 4px; }
+
+  @media (max-width: 860px){
+    .toc-toggle{ display: inline-block; }
+    nav.toc{
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 40; width: min(86vw, 340px);
+      max-height: 100vh; background: var(--bg); transform: translateX(-100%);
+      transition: transform 0.2s ease; padding-top: 76px; box-shadow: 2px 0 24px rgba(0,0,0,0.5);
+    }
+    nav.toc.mobile-open{ transform: translateX(0); }
+    .toc-scrim{ display: none; position: fixed; inset: 0; z-index: 35; background: rgba(0,0,0,0.5); }
+    .toc-scrim.show{ display: block; }
+    .field-row{ flex-direction: column; }
+  }
+
+  @media print{
+    header, nav.toc, .toc-scrim, .card-actions, footer, .empty .btn{ display: none !important; }
+    .layout{ display: block; max-width: none; }
+    main{ max-width: none; padding: 0 24px; }
+    body{ background: #fff; color: #111; }
+    .card{ background: #fff; border-color: #ccc; break-inside: avoid; }
+    .card-text{ color: #111; max-height: none; overflow: visible; }
+    .cat-heading h2{ color: #111; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <button class="toc-toggle" id="tocToggle">☰ Contents</button>
+  <div class="header-main">
+    <p class="eyebrow">Prompt Archive · Build Your Own</p>
+    <h1>Prompt Compendium Builder</h1>
+    <p class="sub" id="subLine">Your own prompt collection — nothing saved here leaves this browser.</p>
+    <div class="controls">
+      <button class="btn primary" id="addBtn">+ Add Prompt</button>
+      <input type="search" id="search" placeholder="Search prompts, subjects, or models…" autocomplete="off">
+      <select id="modelFilter"><option value="">All models / tools</option></select>
+      <select id="catFilter"><option value="">All categories</option></select>
+      <span class="count" id="count"></span>
+      <button class="btn ghost small" id="exportBtn">Export</button>
+      <button class="btn ghost small" id="importBtn">Import</button>
+      <button class="btn ghost small" id="printBtn">Print / Save PDF</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+    </div>
+  </div>
+</header>
+<div class="toc-scrim" id="tocScrim"></div>
+<div class="layout">
+  <nav class="toc" id="toc">
+    <p class="toc-title">Contents</p>
+    <div id="tocBody"></div>
+  </nav>
+  <main id="main"></main>
+</div>
+<footer>Everything here lives in this browser's local storage on this device. Use Export regularly to back up or move your compendium — nothing is synced anywhere automatically.</footer>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modalTitle">Add a prompt</h3>
+    <div class="field">
+      <label>Model / tool</label>
+      <input type="text" id="fModel" placeholder="e.g. Midjourney V7, Nano Banana Pro, Kling 2.6, Unspecified…">
+    </div>
+    <div class="field">
+      <label>Subject (short label)</label>
+      <input type="text" id="fSubject" placeholder="What does this prompt generate?">
+    </div>
+    <div class="field">
+      <label>Category</label>
+      <div class="cat-row">
+        <select id="fCategory"></select>
+        <button class="btn ghost small" id="suggestCatBtn" type="button">Auto-suggest</button>
+        <button class="btn ghost small" id="newCatBtn" type="button">+ New</button>
+      </div>
+      <p class="hint">Auto-suggest guesses from the prompt text below — always double-check it.</p>
+    </div>
+    <div class="field">
+      <label>Prompt text</label>
+      <textarea id="fText" placeholder="Paste the full prompt here…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger small" id="deleteBtn" style="display:none">Delete this entry</button>
+      <div class="right">
+        <button class="btn ghost" id="cancelBtn">Cancel</button>
+        <button class="btn primary" id="saveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'promptCompendiumBuilder.v1';
+  const DEFAULT_CATEGORIES = [
+    "Structured / JSON & System Prompts",
+    "Reusable Templates (Placeholder Frameworks)",
+    "Graphic Design & Typography Systems",
+    "Reference Lists (Artists & Style Names)",
+    "Video & Camera-Motion Prompts",
+    "Real-Person-Likeness Character Portraits",
+    "Retrofuturism & Used-Future Sci-Fi",
+    "Biomechanical, Cyborg & Body-Horror",
+    "Fantasy, Mythic & Dark-Fantasy Editorial",
+    "Fashion, Couture & Editorial Portraits",
+    "Anime, Manga & Stylized Illustration",
+    "Horror & Cosmic Horror",
+    "Posters, Propaganda & Graphic Design",
+    "Space, Astronauts & Sci-Fi Environments",
+    "Product, Object & Tech Renders",
+    "Characters, Creatures & Scene Art (General)",
+    "Uncategorized",
+  ];
+
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { nextId: 1, categories: DEFAULT_CATEGORIES.slice(), entries: [] };
+      const parsed = JSON.parse(raw);
+      if (!parsed.categories) parsed.categories = DEFAULT_CATEGORIES.slice();
+      return parsed;
+    } catch(e){
+      return { nextId: 1, categories: DEFAULT_CATEGORIES.slice(), entries: [] };
+    }
+  }
+  function saveState(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  let state = loadState();
+  let editingId = null;
+
+  const main = document.getElementById('main');
+  const toc = document.getElementById('toc');
+  const tocBody = document.getElementById('tocBody');
+  const searchInput = document.getElementById('search');
+  const modelFilter = document.getElementById('modelFilter');
+  const catFilter = document.getElementById('catFilter');
+  const countEl = document.getElementById('count');
+  const subLine = document.getElementById('subLine');
+  const tocToggle = document.getElementById('tocToggle');
+  const tocScrim = document.getElementById('tocScrim');
+  const overlay = document.getElementById('overlay');
+  const fModel = document.getElementById('fModel');
+  const fSubject = document.getElementById('fSubject');
+  const fCategory = document.getElementById('fCategory');
+  const fText = document.getElementById('fText');
+  const modalTitle = document.getElementById('modalTitle');
+  const deleteBtn = document.getElementById('deleteBtn');
+
+  function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function slug(s){ return 'cat-' + s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+
+  // ---- lightweight client-side category suggester (same spirit as the desktop classifier) ----
+  function suggestCategory(text){
+    const t = text.toLowerCase();
+    const has = (...words) => words.some(w => t.includes(w));
+    if (t.trim().startsWith('{') && t.includes('":')) return "Structured / JSON & System Prompts";
+    if (/^you are (a|an|the)\b/.test(t.trim()) || /<role>|<instruction>/.test(t)) return "Structured / JSON & System Prompts";
+    if (t.includes('text perspective embedding') || (t.includes('fixed structure') && t.includes('variable elements'))) return "Graphic Design & Typography Systems";
+    if (/\[[a-z0-9_ ]{1,30}\]/i.test(text) || /\{[a-z0-9_ ]{1,30}\}/i.test(text)) return "Reusable Templates (Placeholder Frameworks)";
+    if (/\bfpv\b|tracking shot|crane-down|shot \d,/.test(t)) return "Video & Camera-Motion Prompts";
+    if (/\bmage\b/.test(t) || /\boni\b/.test(t) || has('wizard','sorceress','tiefling','dark fantasy','mythological','folklore','dragon')) return "Fantasy, Mythic & Dark-Fantasy Editorial";
+    if (has('cyborg','cybernetic','biomechanical','exoskeleton','android')) return "Biomechanical, Cyborg & Body-Horror";
+    if (has('couture','fashion editorial','headdress','gown','burlesque')) return "Fashion, Couture & Editorial Portraits";
+    if (has('anime','manga','ghibli','cel shading')) return "Anime, Manga & Stylized Illustration";
+    if (has('horror','lovecraft','zombie','cursed','nightmare','grotesque')) return "Horror & Cosmic Horror";
+    if (has('poster','propaganda','typographic','constructivist')) return "Posters, Propaganda & Graphic Design";
+    if (has('astronaut','space station','spaceship','nebula','galaxy','orbit')) return "Space, Astronauts & Sci-Fi Environments";
+    if (has('knolling','product photograph','vinyl record','diorama')) return "Product, Object & Tech Renders";
+    return "Characters, Creatures & Scene Art (General)";
+  }
+
+  function allCategories(){
+    const inUse = [...new Set(state.entries.map(e => e.category))];
+    const combined = [...state.categories];
+    inUse.forEach(c => { if (!combined.includes(c)) combined.push(c); });
+    return combined;
+  }
+
+  function populateFilterDropdowns(){
+    const models = [...new Set(state.entries.map(e => e.model))].sort();
+    modelFilter.innerHTML = '<option value="">All models / tools</option>' +
+      models.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+    const cats = allCategories();
+    catFilter.innerHTML = '<option value="">All categories</option>' +
+      cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${state.entries.filter(e=>e.category===c).length})</option>`).join('');
+  }
+
+  function populateCategorySelect(selectEl, selected){
+    const cats = allCategories();
+    selectEl.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}" ${c===selected?'selected':''}>${escapeHtml(c)}</option>`).join('');
+  }
+
+  function renderToc(){
+    const cats = allCategories().filter(c => state.entries.some(e => e.category === c));
+    tocBody.innerHTML = cats.map(c => {
+      const items = state.entries.filter(e => e.category === c);
+      return `
+        <div class="toc-cat" data-cat="${escapeHtml(c)}">
+          <button class="toc-cat-btn" data-target="${slug(c)}">
+            <span>${escapeHtml(c)}</span>
+            <span class="n">${items.length}</span>
+            <span class="arrow">▸</span>
+          </button>
+          <ul class="toc-entries">
+            ${items.map(p => `<li><a href="#entry-${p.id}" data-id="${p.id}">#${p.id} — ${escapeHtml(p.subject.length > 56 ? p.subject.slice(0,56).trim()+'…' : p.subject)}</a></li>`).join('')}
+          </ul>
+        </div>`;
+    }).join('');
+
+    tocBody.querySelectorAll('.toc-cat-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const wrap = btn.closest('.toc-cat');
+        const wasOpen = wrap.classList.contains('open');
+        tocBody.querySelectorAll('.toc-cat.open').forEach(el => el.classList.remove('open'));
+        if (!wasOpen) wrap.classList.add('open');
+        catFilter.value = ''; searchInput.value = ''; render();
+        requestAnimationFrame(() => {
+          const target = document.getElementById(btn.getAttribute('data-target'));
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        closeMobileToc();
+      });
+    });
+    tocBody.querySelectorAll('.toc-entries a').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        catFilter.value = ''; searchInput.value = ''; render();
+        requestAnimationFrame(() => {
+          const target = document.getElementById('entry-' + a.getAttribute('data-id'));
+          if (target){
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            target.style.borderColor = 'var(--accent)';
+            setTimeout(() => { target.style.borderColor = ''; }, 1600);
+          }
+        });
+        closeMobileToc();
+      });
+    });
+  }
+
+  function render(){
+    populateFilterDropdowns();
+    renderToc();
+
+    const q = searchInput.value.trim().toLowerCase();
+    const model = modelFilter.value;
+    const cat = catFilter.value;
+    const filtered = state.entries.filter(p => {
+      if (model && p.model !== model) return false;
+      if (cat && p.category !== cat) return false;
+      if (!q) return true;
+      return p.text.toLowerCase().includes(q) || p.subject.toLowerCase().includes(q) || p.model.toLowerCase().includes(q);
+    });
+    countEl.textContent = filtered.length + ' / ' + state.entries.length + ' shown';
+    subLine.textContent = state.entries.length === 0
+      ? 'Your own prompt collection — nothing saved here leaves this browser.'
+      : `${state.entries.length} prompt${state.entries.length===1?'':'s'} saved in this browser.`;
+
+    if (state.entries.length === 0){
+      main.innerHTML = `<div class="empty">Nothing here yet.<br>Click <strong>+ Add Prompt</strong> above to start your own compendium.<br><button class="btn primary" id="emptyAddBtn">+ Add Prompt</button></div>`;
+      document.getElementById('emptyAddBtn').addEventListener('click', openAddModal);
+      return;
+    }
+    if (filtered.length === 0){
+      main.innerHTML = '<p class="empty">No prompts match that search.</p>';
+      return;
+    }
+
+    const cats = allCategories().filter(c => filtered.some(e => e.category === c));
+    let out = '';
+    cats.forEach(c => {
+      const items = filtered.filter(e => e.category === c);
+      out += `
+        <div class="cat-heading" id="${slug(c)}"><h2>${escapeHtml(c)}</h2><span class="cat-count">${items.length}</span></div>
+        <hr class="cat-rule">`;
+      out += items.map(p => `
+        <div class="card" id="entry-${p.id}" data-id="${p.id}">
+          <div class="card-head">
+            <div class="card-meta">
+              <div class="card-n">ARCHIVE #${p.id}</div>
+              <div class="card-model">${escapeHtml(p.model)}</div>
+              <div class="card-subject">${escapeHtml(p.subject)}</div>
+            </div>
+            <div class="card-actions">
+              <button class="btn small copy-btn" data-id="${p.id}">Copy</button>
+              <button class="btn small ghost edit-btn" data-id="${p.id}">Edit</button>
+            </div>
+          </div>
+          <pre class="card-text">${escapeHtml(p.text)}</pre>
+        </div>`).join('');
+    });
+    main.innerHTML = out;
+
+    main.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = state.entries.find(e => e.id === parseInt(btn.dataset.id,10));
+        if (!item) return;
+        copyText(item.text, btn);
+      });
+    });
+    main.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => openEditModal(parseInt(btn.dataset.id,10)));
+    });
+  }
+
+  function copyText(text, btn){
+    const done = () => {
+      const original = 'Copy';
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = original; }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else { fallbackCopy(text, done); }
+  }
+  function fallbackCopy(text, done){
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta); done();
+  }
+
+  function openAddModal(){
+    editingId = null;
+    modalTitle.textContent = 'Add a prompt';
+    fModel.value = ''; fSubject.value = ''; fText.value = '';
+    populateCategorySelect(fCategory, allCategories()[0]);
+    deleteBtn.style.display = 'none';
+    overlay.classList.add('show');
+    fModel.focus();
+  }
+  function openEditModal(id){
+    const item = state.entries.find(e => e.id === id);
+    if (!item) return;
+    editingId = id;
+    modalTitle.textContent = `Edit Archive #${id}`;
+    fModel.value = item.model; fSubject.value = item.subject; fText.value = item.text;
+    populateCategorySelect(fCategory, item.category);
+    deleteBtn.style.display = 'inline-block';
+    overlay.classList.add('show');
+  }
+  function closeModal(){ overlay.classList.remove('show'); }
+
+  document.getElementById('addBtn').addEventListener('click', openAddModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+  document.getElementById('newCatBtn').addEventListener('click', () => {
+    const name = prompt('New category name:');
+    if (!name || !name.trim()) return;
+    const clean = name.trim();
+    if (!state.categories.includes(clean)) state.categories.push(clean);
+    populateCategorySelect(fCategory, clean);
+  });
+  document.getElementById('suggestCatBtn').addEventListener('click', () => {
+    if (!fText.value.trim()){ alert('Paste the prompt text first, then auto-suggest.'); return; }
+    const suggestion = suggestCategory(fText.value);
+    if (!allCategories().includes(suggestion)) state.categories.push(suggestion);
+    populateCategorySelect(fCategory, suggestion);
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', () => {
+    const model = fModel.value.trim() || 'Unspecified';
+    const subject = fSubject.value.trim();
+    const text = fText.value.trim();
+    const category = fCategory.value || 'Uncategorized';
+    if (!subject || !text){ alert('Subject and prompt text are both required.'); return; }
+
+    if (editingId){
+      const item = state.entries.find(e => e.id === editingId);
+      item.model = model; item.subject = subject; item.text = text; item.category = category;
+    } else {
+      state.entries.push({ id: state.nextId, model, subject, text, category });
+      state.nextId += 1;
+    }
+    saveState();
+    closeModal();
+    render();
+  });
+
+  deleteBtn.addEventListener('click', () => {
+    if (!editingId) return;
+    if (!confirm(`Delete Archive #${editingId}? This can't be undone (unless you have an exported backup).`)) return;
+    state.entries = state.entries.filter(e => e.id !== editingId);
+    saveState();
+    closeModal();
+    render();
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url; a.download = `prompt-compendium-backup-${stamp}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+  document.getElementById('importFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let incoming;
+      try { incoming = JSON.parse(reader.result); } catch(err){ alert('That file is not valid JSON.'); return; }
+      if (!incoming || !Array.isArray(incoming.entries)){ alert('That file doesn\'t look like a compendium backup.'); return; }
+      const mode = state.entries.length === 0
+        ? 'replace'
+        : prompt('Type "replace" to overwrite your current compendium, or "merge" to add these on top of what you have:', 'merge');
+      if (!mode) return;
+      if (mode.toLowerCase().startsWith('replace')){
+        state = { nextId: incoming.nextId || (incoming.entries.length+1), categories: incoming.categories || DEFAULT_CATEGORIES.slice(), entries: incoming.entries };
+      } else {
+        let nextId = state.nextId;
+        const remapped = incoming.entries.map(e => ({ ...e, id: nextId++ }));
+        state.entries = state.entries.concat(remapped);
+        state.nextId = nextId;
+        (incoming.categories || []).forEach(c => { if (!state.categories.includes(c)) state.categories.push(c); });
+      }
+      saveState();
+      render();
+      alert(`Imported ${incoming.entries.length} prompt(s).`);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  function openMobileToc(){ toc.classList.add('mobile-open'); tocScrim.classList.add('show'); }
+  function closeMobileToc(){ toc.classList.remove('mobile-open'); tocScrim.classList.remove('show'); }
+  tocToggle.addEventListener('click', () => toc.classList.contains('mobile-open') ? closeMobileToc() : openMobileToc());
+  tocScrim.addEventListener('click', closeMobileToc);
+
+  searchInput.addEventListener('input', render);
+  modelFilter.addEventListener('change', render);
+  catFilter.addEventListener('change', render);
+
+  render();
+</script>
+</body>
+</html>
