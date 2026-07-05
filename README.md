@@ -4,6 +4,11 @@ A single-file, offline-first tool for building your own personal archive of AI i
 
 **[Try it live](#)** — or just download `index.html` and open it in any browser.
 
+## Files in this repo
+
+- `index.html` — the **blank builder**: an empty tool for anyone to start their own prompt archive from scratch (see below).
+- `compendium.html` — a **populated example**: D's own working archive of AI image/video prompts (247 entries across 16 categories), shown here as a reference for what a filled-in compendium looks like. It's read-only/browsable (search, filter, copy-to-clipboard) rather than editable in place — use `index.html` if you want to build and edit your own.
+
 ## What it does
 
 - Add prompts through a form: model/tool, a short subject label, category, and the full prompt text
