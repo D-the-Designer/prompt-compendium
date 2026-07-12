@@ -42,6 +42,23 @@
   .eyebrow{ font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
   h1{ margin: 0 0 4px; font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
   .sub{ margin: 0 0 14px; font-size: 12.5px; color: var(--ink-dim); }
+  .nudge{
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: rgba(201,163,78,0.08); border: 1px solid var(--accent-dim);
+    border-radius: 4px; padding: 8px 12px; margin-bottom: 12px;
+    font-family: var(--mono); font-size: 12px; color: var(--ink);
+  }
+  .bulk-item{
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px 12px; border-bottom: 1px solid var(--panel-border);
+  }
+  .bulk-item:last-child{ border-bottom: none; }
+  .bulk-item input[type="checkbox"]{ margin-top: 3px; flex: 0 0 auto; }
+  .bulk-item-body{ flex: 1 1 auto; min-width: 0; }
+  .bulk-item-subject{ font-size: 13px; margin-bottom: 4px; }
+  .bulk-item-meta{ font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); display: flex; gap: 10px; flex-wrap: wrap; }
+  .bulk-item-meta select, .bulk-item-meta input{ font-size: 10.5px; padding: 3px 6px; }
+  .bulk-item-preview{ font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); margin-top: 4px; max-height: 40px; overflow: hidden; }
   .controls{ display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
   input[type="search"], input[type="text"], textarea, select{
     background: var(--panel); border: 1px solid var(--panel-border); color: var(--ink);
@@ -179,8 +196,14 @@
     <p class="eyebrow">Prompt Archive · Build Your Own</p>
     <h1>Prompt Compendium Builder</h1>
     <p class="sub" id="subLine">Your own prompt collection — nothing saved here leaves this browser.</p>
+    <div class="nudge" id="exportNudge" style="display:none">
+      <span id="exportNudgeText"></span>
+      <button class="btn small primary" id="nudgeExportBtn">Export now</button>
+      <button class="btn small ghost" id="nudgeDismissBtn">Dismiss</button>
+    </div>
     <div class="controls">
       <button class="btn primary" id="addBtn">+ Add Prompt</button>
+      <button class="btn ghost" id="bulkAddBtn">+ Bulk Add</button>
       <input type="search" id="search" placeholder="Search prompts, subjects, or models…" autocomplete="off">
       <select id="modelFilter"><option value="">All models / tools</option></select>
       <select id="catFilter"><option value="">All categories</option></select>
@@ -188,6 +211,8 @@
       <button class="btn ghost small" id="exportBtn">Export</button>
       <button class="btn ghost small" id="importBtn">Import</button>
       <button class="btn ghost small" id="printBtn">Print / Save PDF</button>
+      <button class="btn ghost small" id="altCatBtn" title="Swap in a more elaborate starting taxonomy">Try example categories</button>
+      <button class="btn ghost small" id="clearDemoBtn" style="display:none">Clear examples &amp; start fresh</button>
       <input type="file" id="importFile" accept="application/json" style="display:none">
     </div>
   </div>
@@ -201,6 +226,38 @@
   <main id="main"></main>
 </div>
 <footer>Everything here lives in this browser's local storage on this device. Use Export regularly to back up or move your compendium — nothing is synced anywhere automatically.</footer>
+
+<div class="overlay" id="bulkOverlay">
+  <div class="modal" style="max-width: 720px;">
+    <h3>Bulk add prompts</h3>
+    <p class="hint" style="margin-bottom: 10px;">
+      Paste as many prompts as you want, separated by a blank line or a line of dashes (<code>---</code>).
+      If a block starts with a name and <code>@handle</code>, that's picked up as attribution automatically.
+      Category and subject are guessed for each — review before adding.
+    </p>
+    <div class="field">
+      <textarea id="bulkText" style="min-height: 180px;" placeholder="Paste prompt 1 here...&#10;&#10;---&#10;&#10;Paste prompt 2 here..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <div></div>
+      <div class="right">
+        <button class="btn ghost" id="bulkCancelBtn">Cancel</button>
+        <button class="btn primary" id="bulkParseBtn">Parse</button>
+      </div>
+    </div>
+    <div id="bulkReview" style="display:none; margin-top: 16px;">
+      <p class="hint" style="margin-bottom: 10px;">Found <span id="bulkCount">0</span> prompt(s). Uncheck any you don't want, then add.</p>
+      <div id="bulkList" style="max-height: 360px; overflow-y: auto; border: 1px solid var(--panel-border); border-radius: 4px;"></div>
+      <div class="modal-actions">
+        <div></div>
+        <div class="right">
+          <button class="btn ghost" id="bulkBackBtn">Back</button>
+          <button class="btn primary" id="bulkCommitBtn">Add selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="overlay" id="overlay">
   <div class="modal">
@@ -243,7 +300,22 @@
 
 <script>
   const STORAGE_KEY = 'promptCompendiumBuilder.v1';
+  const FIRST_VISIT_KEY = 'promptCompendiumBuilder.hasVisited';
+
+  // Neutral default — works for anyone, not tied to any one person's archive.
   const DEFAULT_CATEGORIES = [
+    "Portraits & Characters",
+    "Products & Objects",
+    "Environments & Landscapes",
+    "Templates (Placeholder Frameworks)",
+    "System / Structured Prompts",
+    "Video & Motion",
+    "Reference & Style Notes",
+    "Uncategorized",
+  ];
+
+  // An alternative, more elaborate starting taxonomy people can opt into instead.
+  const ALT_CATEGORIES = [
     "Structured / JSON & System Prompts",
     "Reusable Templates (Placeholder Frameworks)",
     "Graphic Design & Typography Systems",
@@ -263,15 +335,68 @@
     "Uncategorized",
   ];
 
+  // Shown on a person's very first visit so the tool doesn't open to a blank void.
+  // Clearly marked isDemo so they can be wiped in one click without touching real entries.
+  const DEMO_ENTRIES = [
+    {
+      model: "Unspecified", attribution: null, category: "Portraits & Characters", isDemo: true,
+      subject: "Example — straight-out-of-camera portrait template",
+      text: "A straight-out-of-camera close portrait photo of [SUBJECT], framed head and shoulders against a plain muted wall, soft window light from one side, shallow depth of field with the eye plane sharp, visible skin texture and natural asymmetry, quiet direct expression, no airbrushing, no beauty retouching, no glamour lighting."
+    },
+    {
+      model: "Unspecified", attribution: null, category: "Products & Objects", isDemo: true,
+      subject: "Example — knolling product flat-lay template",
+      text: "Ultra-realistic 8K overhead product photograph in precise knolling composition, straight top-down view of [OBJECT] disassembled into its essential components, arranged with exact spacing in a grid, minimalist matte background, soft diffused lighting with gentle shadows, each component labeled with a thin leader line, technical editorial aesthetic, no watermark, no clutter."
+    },
+    {
+      model: "Unspecified", attribution: null, category: "Environments & Landscapes", isDemo: true,
+      subject: "Example — golden hour establishing shot template",
+      text: "A wide establishing shot of [LOCATION] at golden hour, warm directional light casting long shadows, atmospheric haze in the distance, layered depth from foreground to background, cinematic color grading, photorealistic, no people, no text, no logos."
+    },
+    {
+      model: "Unspecified", attribution: null, category: "Templates (Placeholder Frameworks)", isDemo: true,
+      subject: "Example — retro travel-poster silhouette template",
+      text: "Create a high-quality [SUBJECT] in a minimalist retro travel-poster style. Feature the subject as a bold silhouette with subtle highlight accents, placed in front of a vintage-inspired sunset made of concentric arches. Soft cream background with simple stylized clouds. Minimal sans-serif typography in the top-left corner displaying [TITLE] with [YEAR/DATE] beneath it. Mid-century modern aesthetic, muted colors, crisp edges."
+    },
+    {
+      model: "Nano Banana Pro / GPT Image Gen V2", attribution: null, category: "System / Structured Prompts", isDemo: true,
+      subject: "Example — platform-neutral style-conversion system prompt (shortened)",
+      text: "You are a platform-neutral image prompt writer. Your job is to convert any user-supplied text or image input into one complete image-generation prompt in a specific target style. Do not generate the image. Do not explain the style unless asked. Output only the finished plain-language prompt.\n\n(This is a shortened demo. A real system prompt in this category typically spells out: core style thesis, input handling rules, mandatory opening phrasing, a full list of concrete visual signals to include, and a list of things to avoid.)"
+    },
+    {
+      model: "Kling / Seedance / Runway (any video model)", attribution: null, category: "Video & Motion", isDemo: true,
+      subject: "Example — single continuous tracking-shot template",
+      text: "Single continuous uninterrupted cinematic shot, no cuts, one flowing 10-second take. [SUBJECT] moves through [LOCATION], camera tracking low and close beside it the entire time. Natural handheld energy, realistic lighting, no music, no narration. The shot ends on [FINAL BEAT]."
+    },
+    {
+      model: "Reference list (not a generation prompt)", attribution: null, category: "Reference & Style Notes", isDemo: true,
+      subject: "Example — style-modifier reference list",
+      text: "Quick style-phrase reference (swap in as needed):\n- Oil painting — \"oil on canvas\", \"thick impasto oil painting\"\n- Watercolor — \"delicate watercolour\", \"soft translucent watercolour\"\n- Cyberpunk — \"neon cyberpunk\", \"blade runner cyberpunk aesthetic\"\n- Monochrome — \"pure monochrome\", \"high contrast black and white\""
+    },
+  ];
+
   function loadState(){
+    const isFirstVisit = !localStorage.getItem(FIRST_VISIT_KEY);
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { nextId: 1, categories: DEFAULT_CATEGORIES.slice(), entries: [] };
+      if (!raw) {
+        localStorage.setItem(FIRST_VISIT_KEY, '1');
+        if (isFirstVisit){
+          return {
+            nextId: DEMO_ENTRIES.length + 1,
+            categories: DEFAULT_CATEGORIES.slice(),
+            entries: DEMO_ENTRIES.map((e, i) => ({ ...e, id: i + 1 })),
+            lastExport: null,
+          };
+        }
+        return { nextId: 1, categories: DEFAULT_CATEGORIES.slice(), entries: [], lastExport: null };
+      }
       const parsed = JSON.parse(raw);
       if (!parsed.categories) parsed.categories = DEFAULT_CATEGORIES.slice();
+      if (parsed.lastExport === undefined) parsed.lastExport = null;
       return parsed;
     } catch(e){
-      return { nextId: 1, categories: DEFAULT_CATEGORIES.slice(), entries: [] };
+      return { nextId: 1, categories: DEFAULT_CATEGORIES.slice(), entries: [], lastExport: null };
     }
   }
   function saveState(){
@@ -395,6 +520,8 @@
   function render(){
     populateFilterDropdowns();
     renderToc();
+    updateClearDemoBtn();
+    checkExportNudge();
 
     const q = searchInput.value.trim().toLowerCase();
     const model = modelFilter.value;
@@ -656,7 +783,8 @@
     render();
   });
 
-  document.getElementById('exportBtn').addEventListener('click', () => {
+  document.getElementById('exportBtn').addEventListener('click', doExport);
+  function doExport(){
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -664,7 +792,10 @@
     a.href = url; a.download = `prompt-compendium-backup-${stamp}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  });
+    state.lastExport = Date.now();
+    saveState();
+    checkExportNudge();
+  }
 
   document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
   document.getElementById('importFile').addEventListener('change', (e) => {
@@ -680,7 +811,7 @@
         : prompt('Type "replace" to overwrite your current compendium, or "merge" to add these on top of what you have:', 'merge');
       if (!mode) return;
       if (mode.toLowerCase().startsWith('replace')){
-        state = { nextId: incoming.nextId || (incoming.entries.length+1), categories: incoming.categories || DEFAULT_CATEGORIES.slice(), entries: incoming.entries };
+        state = { nextId: incoming.nextId || (incoming.entries.length+1), categories: incoming.categories || DEFAULT_CATEGORIES.slice(), entries: incoming.entries, lastExport: state.lastExport };
       } else {
         let nextId = state.nextId;
         const remapped = incoming.entries.map(e => ({ ...e, id: nextId++ }));
@@ -697,6 +828,150 @@
   });
 
   document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  // ---- Alternative starting taxonomy ----
+  document.getElementById('altCatBtn').addEventListener('click', () => {
+    if (!confirm('Swap in the more elaborate example category list? Your existing categories that are still in use will be kept alongside it.')) return;
+    const inUse = [...new Set(state.entries.map(e => e.category))];
+    const merged = ALT_CATEGORIES.slice();
+    inUse.forEach(c => { if (!merged.includes(c)) merged.push(c); });
+    state.categories = merged;
+    saveState();
+    render();
+  });
+
+  // ---- Demo entries ----
+  function updateClearDemoBtn(){
+    const hasDemo = state.entries.some(e => e.isDemo);
+    document.getElementById('clearDemoBtn').style.display = hasDemo ? 'inline-block' : 'none';
+  }
+  document.getElementById('clearDemoBtn').addEventListener('click', () => {
+    if (!confirm('Remove the example entries? Anything you\'ve added yourself is kept.')) return;
+    state.entries = state.entries.filter(e => !e.isDemo);
+    saveState();
+    render();
+  });
+
+  // ---- Export nudge ----
+  function checkExportNudge(){
+    const banner = document.getElementById('exportNudge');
+    const textEl = document.getElementById('exportNudgeText');
+    if (state.entries.filter(e => !e.isDemo).length === 0){ banner.style.display = 'none'; return; }
+    const daysSince = state.lastExport ? (Date.now() - state.lastExport) / 86400000 : Infinity;
+    if (daysSince < 7){ banner.style.display = 'none'; return; }
+    textEl.textContent = state.lastExport
+      ? `Last exported ${Math.floor(daysSince)} day${Math.floor(daysSince)===1?'':'s'} ago — back up your work.`
+      : `You haven't exported a backup yet — everything here only lives in this browser.`;
+    banner.style.display = 'flex';
+  }
+  document.getElementById('nudgeExportBtn').addEventListener('click', doExport);
+  document.getElementById('nudgeDismissBtn').addEventListener('click', () => {
+    state.lastExport = Date.now();
+    saveState();
+    document.getElementById('exportNudge').style.display = 'none';
+  });
+
+  // ---- Bulk add ----
+  const bulkOverlay = document.getElementById('bulkOverlay');
+  const bulkText = document.getElementById('bulkText');
+  const bulkReview = document.getElementById('bulkReview');
+  const bulkList = document.getElementById('bulkList');
+  let bulkParsed = [];
+
+  document.getElementById('bulkAddBtn').addEventListener('click', () => {
+    bulkText.value = '';
+    bulkReview.style.display = 'none';
+    bulkText.parentElement.style.display = 'block';
+    bulkOverlay.classList.add('show');
+  });
+  document.getElementById('bulkCancelBtn').addEventListener('click', () => bulkOverlay.classList.remove('show'));
+  bulkOverlay.addEventListener('click', (e) => { if (e.target === bulkOverlay) bulkOverlay.classList.remove('show'); });
+
+  function parseAttribution(block){
+    // "Name (@handle)" or bare "@handle" near the start of the block
+    const m1 = block.match(/^([A-Z][\w .'-]{1,40})\s*\(@([\w]{2,30})\)/m);
+    if (m1) return `${m1[1].trim()} (@${m1[2]})`;
+    const m2 = block.match(/@([\w]{2,30})/);
+    if (m2) return `@${m2[1]}`;
+    return null;
+  }
+
+  function parseBulkText(raw){
+    const blocks = raw.split(/\n\s*(?:---+|\n)\s*\n/).map(b => b.trim()).filter(b => b.length > 0);
+    return blocks.map(block => {
+      const attribution = parseAttribution(block);
+      const category = suggestCategory(block);
+      const subject = block.replace(/\s+/g, ' ').trim().slice(0, 80);
+      return {
+        text: block,
+        attribution,
+        category,
+        subject: subject.length === 80 ? subject + '…' : subject,
+        model: 'Unspecified',
+        include: true,
+      };
+    });
+  }
+
+  document.getElementById('bulkParseBtn').addEventListener('click', () => {
+    const raw = bulkText.value;
+    if (!raw.trim()){ alert('Paste at least one prompt first.'); return; }
+    bulkParsed = parseBulkText(raw);
+    if (bulkParsed.length === 0){ alert('Nothing parsed — check your formatting.'); return; }
+    renderBulkReview();
+    bulkText.parentElement.style.display = 'none';
+    bulkReview.style.display = 'block';
+  });
+
+  document.getElementById('bulkBackBtn').addEventListener('click', () => {
+    bulkReview.style.display = 'none';
+    bulkText.parentElement.style.display = 'block';
+  });
+
+  function renderBulkReview(){
+    document.getElementById('bulkCount').textContent = bulkParsed.length;
+    bulkList.innerHTML = bulkParsed.map((item, i) => `
+      <div class="bulk-item">
+        <input type="checkbox" data-i="${i}" class="bulk-include" ${item.include ? 'checked' : ''}>
+        <div class="bulk-item-body">
+          <div class="bulk-item-subject">${escapeHtml(item.subject)}</div>
+          <div class="bulk-item-meta">
+            <span>Category:</span>
+            <select data-i="${i}" class="bulk-cat">
+              ${allCategories().map(c => `<option value="${escapeHtml(c)}" ${c===item.category?'selected':''}>${escapeHtml(c)}</option>`).join('')}
+            </select>
+            <span>Attribution: ${item.attribution ? escapeHtml(item.attribution) : '(none detected)'}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    bulkList.querySelectorAll('.bulk-include').forEach(cb => {
+      cb.addEventListener('change', () => { bulkParsed[+cb.dataset.i].include = cb.checked; });
+    });
+    bulkList.querySelectorAll('.bulk-cat').forEach(sel => {
+      sel.addEventListener('change', () => { bulkParsed[+sel.dataset.i].category = sel.value; });
+    });
+  }
+
+  document.getElementById('bulkCommitBtn').addEventListener('click', () => {
+    const toAdd = bulkParsed.filter(item => item.include);
+    if (toAdd.length === 0){ alert('Nothing selected.'); return; }
+    toAdd.forEach(item => {
+      state.entries.push({
+        id: state.nextId,
+        model: item.model,
+        attribution: item.attribution,
+        subject: item.subject,
+        text: item.text,
+        category: item.category,
+      });
+      state.nextId += 1;
+    });
+    saveState();
+    bulkOverlay.classList.remove('show');
+    render();
+    alert(`Added ${toAdd.length} prompt(s).`);
+  });
 
   function openMobileToc(){ toc.classList.add('mobile-open'); tocScrim.classList.add('show'); }
   function closeMobileToc(){ toc.classList.remove('mobile-open'); tocScrim.classList.remove('show'); }
