@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prompt Compendium Builder — make your own</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nova+Mono&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg: #0d0f0d;
@@ -15,6 +18,7 @@
     --accent-dim: #8a7133;
     --danger: #b0524a;
     --mono: "IBM Plex Mono", "Consolas", "SF Mono", monospace;
+    --ocr: "Nova Mono", "OCR A Std", "Consolas", monospace;
     --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
     --sidebar-w: 300px;
   }
@@ -39,7 +43,7 @@
     border-radius: 3px; cursor: pointer; flex: 0 0 auto;
   }
   .header-main{ flex: 1 1 auto; min-width: 0; }
-  .eyebrow{ font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
+  .eyebrow{ font-family: var(--ocr); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
   h1{ margin: 0 0 4px; font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
   .sub{ margin: 0 0 14px; font-size: 12.5px; color: var(--ink-dim); }
   .nudge{
@@ -109,14 +113,14 @@
   main{ flex: 1 1 auto; min-width: 0; max-width: 900px; margin: 0 auto; padding: 24px 28px 100px; }
   .cat-heading{ display: flex; align-items: baseline; gap: 10px; margin: 34px 0 4px; padding-top: 6px; scroll-margin-top: 96px; }
   .cat-heading:first-child{ margin-top: 0; }
-  .cat-heading h2{ margin: 0; font-size: 17px; font-weight: 600; color: var(--accent); }
+  .cat-heading h2{ margin: 0; font-size: 17px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; font-family: var(--ocr); color: var(--accent); }
   .cat-heading .cat-count{ font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
   .cat-rule{ border: none; border-top: 1px solid var(--panel-border); margin: 8px 0 18px; }
 
   .card{ background: var(--panel); border: 1px solid var(--panel-border); border-radius: 4px; margin-bottom: 14px; overflow: hidden; scroll-margin-top: 96px; }
   .card-head{ display:flex; align-items:flex-start; justify-content: space-between; gap: 12px; padding: 12px 14px 10px; border-bottom: 1px solid var(--panel-border); }
   .card-meta{ min-width: 0; }
-  .card-n{ font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: 0.08em; }
+  .card-n{ font-family: var(--ocr); font-size: 10px; color: var(--accent); letter-spacing: 0.1em; }
   .card-model{ font-family: var(--mono); font-size: 11px; color: var(--ink-dim); margin: 2px 0 4px; }
   .card-subject{ font-size: 13.5px; line-height: 1.35; color: var(--ink); }
   .card-actions{ display: flex; gap: 6px; flex: 0 0 auto; align-items: center; }
@@ -147,6 +151,9 @@
   .empty .btn{ margin-top: 14px; }
 
   footer{ max-width: 900px; margin: 0 auto; padding: 0 28px 60px; font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+  footer .credit{ display: block; margin-top: 8px; font-family: var(--ocr); font-size: 11px; letter-spacing: 0.05em; }
+  footer .credit a{ color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-dim); }
+  footer .credit a:hover{ border-bottom-color: var(--accent); }
 
   /* Modal */
   .overlay{ position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
@@ -225,7 +232,7 @@
   </nav>
   <main id="main"></main>
 </div>
-<footer>Everything here lives in this browser's local storage on this device. Use Export regularly to back up or move your compendium — nothing is synced anywhere automatically.</footer>
+<footer>Everything here lives in this browser's local storage on this device. Use Export regularly to back up or move your compendium — nothing is synced anywhere automatically.<span class="credit">Tool by D the Designer · <a href="https://x.com/D_the_Designer" target="_blank" rel="noopener">@D_the_Designer</a></span></footer>
 
 <div class="overlay" id="bulkOverlay">
   <div class="modal" style="max-width: 720px;">
